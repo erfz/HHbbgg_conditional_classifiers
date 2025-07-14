@@ -235,7 +235,7 @@ if __name__ == "__main__":
 
     # Create data loaders
     g = torch.Generator().manual_seed(seed)
-    batch_size = 1024 #16384 # 8192 # 32768 # 1024 #16384
+    batch_size = 65536 #16384 # 8192 # 32768 # 1024 #16384
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, generator=g)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
@@ -246,10 +246,10 @@ if __name__ == "__main__":
     best_scheduler = ReduceLROnPlateau(best_optimizer, mode='min', factor=0.5, patience=15, min_lr=1e-6)
 
     # Training loop parameters
-    n_epochs = 500
+    n_epochs = 100
     best_loss = np.inf
     best_weights = None
-    patience = 25
+    patience = 10
     counter = 0
 
     train_loss_hist = []
@@ -303,16 +303,26 @@ if __name__ == "__main__":
 
     # Save predictions (optional)
     best_model.eval()
-    with torch.no_grad():
-        y_pred_train = best_model(X_train.to(device))
-        y_pred_val = best_model(X_val.to(device))
 
-    y_pred_train_probs = F.softmax(y_pred_train, dim=1)
-    y_pred_train_np = y_pred_train_probs.cpu().detach().numpy()
+    y_pred_train_np = []
+    for i in range(0, len(X_train), batch_size):
+        X_batch = X_train[i : i + batch_size].to(device)
+        with torch.no_grad():
+            y_batch = best_model(X_batch)
+            y_batch = F.softmax(y_batch, dim=1)
+            y_pred_train_np.append(y_batch.cpu().numpy())
+    y_pred_train_np = np.concatenate(y_pred_train_np, axis=0)
+
+    y_pred_val_np = []
+    for i in range(0, len(X_val), batch_size):
+        X_batch = X_val[i : i + batch_size].to(device)
+        with torch.no_grad():
+            y_batch = best_model(X_batch)
+            y_batch = F.softmax(y_batch, dim=1)
+            y_pred_val_np.append(y_batch.cpu().numpy())
+    y_pred_val_np = np.concatenate(y_pred_val_np, axis=0)
+
     y_train_np = y_train.cpu().numpy()
-
-    y_pred_val_probs = F.softmax(y_pred_val, dim=1)
-    y_pred_val_np = y_pred_val_probs.cpu().detach().numpy()
     y_val_np = y_val.cpu().numpy()
 
     # Save predictions

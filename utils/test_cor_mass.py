@@ -21,8 +21,8 @@ if __name__ == "__main__":
     with open(f"{training_config_path}", 'r') as f:
         training_config = yaml.safe_load(f)
 
-    samples_in_config = training_config["samples_info"]["preEE"].keys()
     eras = training_config["samples_info"]["eras"]
+    samples_in_config = training_config["samples_info"][eras[0]].keys()
     events_path = training_config["samples_info"]["samples_path"]
 
     non_resonant_samples = ["TTGG", "GGJets"]
@@ -80,7 +80,7 @@ if __name__ == "__main__":
     # Di-photon mass plot
     fig, ax = plt.subplots()
     for cut in [0, 0.6, 0.9, 0.95]:
-        mask = y[:, 3] > cut
+        mask = y[:, 3] > cut # need to change to mask = y[:, 2] > cut (?)
         plot_with_errorbars(
             data=np.array(events.mass)[mask],
             weights=rel_w[mask],
@@ -101,7 +101,7 @@ if __name__ == "__main__":
     # Dijet mass plot
     fig, ax = plt.subplots()
     for cut in [0, 0.6, 0.9, 0.95]:
-        mask = y[:, 3] > cut
+        mask = y[:, 3] > cut # need to change to mask = y[:, 2] > cut (?)
         plot_with_errorbars(
             data=np.array(events.Res_mjj_regressed)[mask],
             weights=rel_w[mask],

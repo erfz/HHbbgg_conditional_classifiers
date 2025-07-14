@@ -14,6 +14,7 @@ import awkward as ak
 import mplhep as hep
 from mlp import MLP
 import pickle
+import yaml
 
 def load_checkpoint(file_path):
     checkpoint = torch.load(file_path, weights_only=False)
@@ -38,6 +39,7 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='Plot the results of the MLP')
     parser.add_argument('--input_path', type=str, help='Path to the inputs')
+    parser.add_argument('--training_config_path', type=str, help='Path to the inputs')
     args = parser.parse_args()
 
     #inputs_for_MLP = "../data/inputs_for_MLP_202411226/"
@@ -108,7 +110,9 @@ if __name__ == "__main__":
     from itertools import combinations
 
     # Class names
-    class_names = ["non_resonant_bkg", "ttH", "other_single_H", "GluGluToHH", "VBFToHH_sig"]
+    with open(f"{args.training_config_path}", 'r') as f:
+        training_config = yaml.safe_load(f)
+    class_names = training_config['classes']#["non_resonant_bkg", "ttH", "other_single_H", "GluGluToHH", "VBFToHH_sig"]
     #n_classes = len(class_names)
     n_classes = y_val.shape[1]
 
@@ -147,7 +151,7 @@ if __name__ == "__main__":
 
     # One-vs-One ROC Curves
     # For each pair of classes
-    glu_idx = class_names.index("GluGluToHH")
+    glu_idx = class_names.index("is_GluGluToHH_sig")
 
     # List of other class indices
     other_classes = [i for i in range(n_classes) if i != glu_idx]
@@ -324,7 +328,7 @@ if __name__ == "__main__":
 
     # One-vs-One ROC Curves
     # For each pair of classes
-    glu_idx = class_names.index("GluGluToHH")
+    glu_idx = class_names.index("is_GluGluToHH_sig")
 
     # List of other class indices
     other_classes = [i for i in range(n_classes) if i != glu_idx]
@@ -481,4 +485,5 @@ for i in range(n_classes):
     fig.tight_layout()
     fig.savefig(f'{path_for_plots}/{class_name}_score.png')
     plt.close(fig)
+
 

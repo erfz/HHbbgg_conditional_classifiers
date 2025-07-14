@@ -7,7 +7,7 @@ import torch.nn.functional as F
 import yaml
 
 
-def get_prediction(model_dict_path, model_path, X):
+def get_prediction(model_dict_path, model_path, X, output_size):
 
     if isinstance(model_dict_path, str):
         with open(model_dict_path, 'r') as f:
@@ -22,7 +22,6 @@ def get_prediction(model_dict_path, model_path, X):
     best_act_fn = getattr(nn, best_act_fn_name)
     best_dropout_prob = best_params['dropout_prob']
     input_size = X.shape[1]
-    output_size = 4
 
     model = MLP(input_size, best_num_layers, best_num_nodes, output_size, best_act_fn, best_dropout_prob).to(device)
     model.to(device)
@@ -128,7 +127,7 @@ if __name__ == "__main__":
 
                 print(f"Getting prediction for {sample} in {era} era")
                 #pred = get_prediction(model_dict_path, model_path, X)
-                pred = get_prediction(model_dict_path, model_path, X)
+                pred = get_prediction(model_dict_path, model_path, X, len(training_config["classes"]))
                 print(np.sum(pred, axis=1))
                 # save the prediction
                 print(f"Saving prediction for {sample} in {era} era \n")
@@ -142,7 +141,7 @@ if __name__ == "__main__":
 
         print(f"Getting prediction for {data_sample}")
         #pred = get_prediction(model_dict_path, model_path, X)
-        pred = get_prediction(model_dict_path, model_path, X)
+        pred = get_prediction(model_dict_path, model_path, X, len(training_config["classes"]))
         print(np.sum(pred, axis=1))
         # save the prediction
         print(f"Saving prediction for {data_sample} \n")

@@ -36,6 +36,8 @@ class PrepareInputs:
         self.fill_nan = -9
         self.extra_vars = ["mass", "nonRes_dijet_mass", "Res_dijet_mass", "nonRes_has_two_btagged_jets", "weight", "pt", "nonRes_dijet_pt", "Res_dijet_pt", "Res_lead_bjet_pt", "Res_sublead_bjet_pt", "Res_lead_bjet_ptPNetCorr", "Res_sublead_bjet_ptPNetCorr", "nonRes_HHbbggCandidate_mass", "Res_HHbbggCandidate_mass", "eta", "nBTight","nBMedium","nBLoose", "nonRes_mjj_regressed", "Res_mjj_regressed", "nonRes_lead_bjet_ptPNetCorr", "nonRes_sublead_bjet_ptPNetCorr", "nonRes_lead_bjet_pt", "nonRes_sublead_bjet_pt", "lead_isScEtaEB", "lead_isScEtaEE", "sublead_isScEtaEB", "sublead_isScEtaEE", "lead_mvaID", "sublead_mvaID", "jet1_mass", "jet2_mass", "jet3_mass", "jet4_mass", "jet5_mass", "jet6_mass", "Res_lead_bjet_jet_idx", "Res_sublead_bjet_jet_idx", "jet1_index", "jet2_index", "jet3_index", "jet4_index", "jet5_index", "jet6_index",
                            "jet1_pt", "jet2_pt", "jet3_pt", "jet4_pt", "jet5_pt", "jet6_pt", "jet1_eta", "jet2_eta", "jet3_eta", "jet4_eta", "jet5_eta", "jet6_eta", "jet1_phi", "jet2_phi", "jet3_phi", "jet4_phi", "jet5_phi", "jet6_phi", "lead_phi", "sublead_phi"]
+        # Add Run2 variables
+        self.extra_vars += ["Res_lead_bjet_btagDeepFlavB", "Res_sublead_bjet_btagDeepFlavB", "Res_lead_bjet_ptbRegCorr", "Res_sublead_bjet_ptbRegCorr", "nonRes_lead_bjet_ptbRegCorr", "nonRes_sublead_bjet_ptbRegCorr", "Res_dijet_massbRegCorr", "nonRes_dijet_massbRegCorr"]
         
         # prepare process numbers for proccesses in each class
         num_process_each_class = {
@@ -109,6 +111,14 @@ class PrepareInputs:
             events["era"] = 2
         elif era == "postBPix":
             events["era"] = 3
+        elif era == "2016APV":
+            events["era"] = 4
+        elif era == "2016nonAPV":
+            events["era"] = 5
+        elif era == "2017":
+            events["era"] = 6
+        elif era == "2018":
+            events["era"] = 7
 
         # add jet related mass
             
@@ -230,15 +240,19 @@ class PrepareInputs:
         "preEE": 7.98,  # Integrated luminosity for preEE in fb^-1
         "postEE": 26.67,  # Integrated luminosity for postEE in fb^-1
         "preBPix": 17.794,  # Integrated luminosity for preEE in fb^-1
-        "postBPix": 9.451  # Integrated luminosity for postEE in fb^-1
+        "postBPix": 9.451,  # Integrated luminosity for postEE in fb^-1
+        "2016APV": 19.5,
+        "2016nonAPV": 16.8,
+        "2017": 41.480,
+        "2018": 59.83
         }
 
         lumi = luminosities[era]
         if sample_type == "DDQCDGJET":
             lumi = 1.0
 
-        events["rel_xsec_weight"] = (events.weight) * dict_xsec[sample_type] * lumi
-        events["weight_tot"] = (events.weight) * dict_xsec[sample_type] * lumi
+        events["rel_xsec_weight"] = (events.weight) if era in ["2016APV", "2016nonAPV", "2017", "2018"] else (events.weight) * dict_xsec[sample_type] * lumi
+        events["weight_tot"] = (events.weight) if era in ["2016APV", "2016nonAPV", "2017", "2018"] else (events.weight) * dict_xsec[sample_type] * lumi
 
         return events
 
@@ -400,6 +414,19 @@ class PrepareInputs:
 
     
     def preselection(self, events):
+        var_substitutions_Run2 = {
+            "Res_mjj_regressed": "Res_dijet_massbRegCorr",  # No dedicated dijet mass regression in current Run2 parquets
+            "nonRes_mjj_regressed": "nonRes_dijet_massbRegCorr",
+            "Res_lead_bjet_ptPNetCorr": "Res_lead_bjet_ptbRegCorr",
+            "nonRes_lead_bjet_ptPNetCorr": "nonRes_lead_bjet_ptbRegCorr",
+            "Res_sublead_bjet_ptPNetCorr": "Res_sublead_bjet_ptbRegCorr",
+            "nonRes_sublead_bjet_ptPNetCorr": "nonRes_sublead_bjet_ptbRegCorr",
+            "Res_lead_bjet_btagPNetB": "Res_lead_bjet_btagDeepFlavB",
+            "Res_sublead_bjet_btagPNetB": "Res_sublead_bjet_btagDeepFlavB"
+        }
+        for k, v in var_substitutions_Run2.items():
+            if k not in events.fields:
+                events[k] = events[v]
         
         mass_bool = ((events.mass > 100) & (events.mass < 180))
         dijet_mass_bool = ((events.Res_mjj_regressed > 70) & (events.Res_mjj_regressed < 190))
@@ -764,7 +791,11 @@ class PrepareInputs:
                                  "2022_EraD": "preEE",
                                  "2023_EraCv1to3": "preBPix", 
                                  "2023_EraCv4": "preBPix", 
-                                 "2023_EraD": "postBPix"}
+                                 "2023_EraD": "postBPix",
+                                 "2016APV": "2016APV",
+                                 "2016nonAPV": "2016nonAPV",
+                                 "2017": "2017",
+                                 "2018": "2018"}
 
             # add preselection
             events = self.preselection(events)
