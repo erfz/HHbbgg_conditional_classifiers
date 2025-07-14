@@ -39,6 +39,8 @@ class PrepareInputs:
         #                   "jet1_pt", "jet2_pt", "jet3_pt", "jet4_pt", "jet5_pt", "jet6_pt", "jet1_eta", "jet2_eta", "jet3_eta", "jet4_eta", "jet5_eta", "jet6_eta", "jet1_phi", "jet2_phi", "jet3_phi", "jet4_phi", "jet5_phi", "jet6_phi", "lead_phi", "sublead_phi"]
 
         self.extra_vars = ["mass", "nonRes_dijet_mass", "nonResReg_dijet_mass", "nonResReg_dijet_mass_DNNreg", "nonResReg_HHbbggCandidate_mass", "nonResReg_dijet_pt", "nonResReg_lead_bjet_pt", "nonResReg_sublead_bjet_pt", "nonResReg_lead_bjet_eta", "nonResReg_DNNpair_dijet_mass", "nonResReg_DNNpair_dijet_mass_DNNreg", "weight", "pt", "nonRes_dijet_pt", "nonRes_HHbbggCandidate_mass", "eta", "nBTight","nBMedium","nBLoose", "nonRes_lead_bjet_pt", "nonRes_sublead_bjet_pt", "lead_isScEtaEB", "lead_isScEtaEE", "sublead_isScEtaEB", "sublead_isScEtaEE", "lead_mvaID", "sublead_mvaID", "lead_eta", "lead_phi", "sublead_eta", "sublead_phi"]
+        # Add Run2 variables
+        self.extra_vars += ["Res_lead_bjet_btagDeepFlavB", "Res_sublead_bjet_btagDeepFlavB", "Res_lead_bjet_ptbRegCorr", "Res_sublead_bjet_ptbRegCorr", "nonRes_lead_bjet_ptbRegCorr", "nonRes_sublead_bjet_ptbRegCorr", "Res_dijet_massbRegCorr", "nonRes_dijet_massbRegCorr"]
         
         # prepare process numbers for proccesses in each class
         num_process_each_class = {
@@ -223,15 +225,19 @@ class PrepareInputs:
         "preEE": 7.98,  # Integrated luminosity for preEE in fb^-1
         "postEE": 26.67,  # Integrated luminosity for postEE in fb^-1
         "preBPix": 17.794,  # Integrated luminosity for preEE in fb^-1
-        "postBPix": 9.451  # Integrated luminosity for postEE in fb^-1
+        "postBPix": 9.451,  # Integrated luminosity for postEE in fb^-1
+        "2016APV": 19.5,
+        "2016nonAPV": 16.8,
+        "2017": 41.480,
+        "2018": 59.83
         }
 
         lumi = luminosities[era]
         if sample_type == "DDQCDGJET":
             lumi = 1.0
 
-        events["rel_xsec_weight"] = (events.weight) * dict_xsec[sample_type] * lumi
-        events["weight_tot"] = (events.weight) * dict_xsec[sample_type] * lumi
+        events["rel_xsec_weight"] = (events.weight) if era in ["2016APV", "2016nonAPV", "2017", "2018"] else (events.weight) * dict_xsec[sample_type] * lumi
+        events["weight_tot"] = (events.weight) if era in ["2016APV", "2016nonAPV", "2017", "2018"] else (events.weight) * dict_xsec[sample_type] * lumi
 
         return events
 
@@ -390,6 +396,19 @@ class PrepareInputs:
 
     
     def preselection(self, events):
+        var_substitutions_Run2 = {
+            "Res_mjj_regressed": "Res_dijet_massbRegCorr",  # No dedicated dijet mass regression in current Run2 parquets
+            "nonRes_mjj_regressed": "nonRes_dijet_massbRegCorr",
+            "Res_lead_bjet_ptPNetCorr": "Res_lead_bjet_ptbRegCorr",
+            "nonRes_lead_bjet_ptPNetCorr": "nonRes_lead_bjet_ptbRegCorr",
+            "Res_sublead_bjet_ptPNetCorr": "Res_sublead_bjet_ptbRegCorr",
+            "nonRes_sublead_bjet_ptPNetCorr": "nonRes_sublead_bjet_ptbRegCorr",
+            "Res_lead_bjet_btagPNetB": "Res_lead_bjet_btagDeepFlavB",
+            "Res_sublead_bjet_btagPNetB": "Res_sublead_bjet_btagDeepFlavB"
+        }
+        for k, v in var_substitutions_Run2.items():
+            if k not in events.fields:
+                events[k] = events[v]
         
         mass_bool = ((events.mass > 100) & (events.mass < 180))
         dijet_mass_bool = ((events.nonResReg_dijet_mass_DNNreg > 70) & (events.nonResReg_dijet_mass_DNNreg < 190))
@@ -868,7 +887,11 @@ class PrepareInputs:
                                  "2023_EraCv1to3": "preBPix", 
                                  "2023_EraCv4": "preBPix",
                                  "2023_EraC": "preBPix",
-                                 "2023_EraD": "postBPix"}
+                                 "2023_EraD": "postBPix",
+                                 "2016APV": "2016APV",
+                                 "2016nonAPV": "2016nonAPV",
+                                 "2017": "2017",
+                                 "2018": "2018"}
 
             # add preselection
             events = self.preselection_for_pred(events)

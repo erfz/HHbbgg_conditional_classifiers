@@ -40,7 +40,7 @@ class ModelEstimatorWrapper:
         best_act_fn_name = best_params['act_fn_name']
         best_act_fn = getattr(nn, best_act_fn_name)
         best_dropout_prob = best_params['dropout_prob']
-        output_size = best_params.get('output_size', 4)  # Adjust as per your problem
+        output_size = best_params.get('output_size', 3)  # Adjust as per your problem
 
         # Define the model
         self.model = MLP(
@@ -207,8 +207,8 @@ if __name__ == "__main__":
 
 
     # for specific classes
-    class_names = ["nonRes class", "ttH class", "other single H class", "ggFHH class", "VBFHH class"]
-    class_labels = [f'{class_names[i]}' for i in range(4)]  # or use your own names
+    class_names = ["nonRes class", "other single H class", "ggFHH class", "VBFHH class"]
+    class_labels = [f'{class_names[i]}' for i in range(3)]  # or use your own names
 
 #    for class_idx, class_name in enumerate(class_labels):
 #        print(f"\n>> Computing permutation importance for class {class_name}...")
