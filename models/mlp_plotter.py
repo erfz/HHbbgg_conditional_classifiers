@@ -112,7 +112,7 @@ if __name__ == "__main__":
     # Class names
     with open(f"{args.training_config_path}", 'r') as f:
         training_config = yaml.safe_load(f)
-    class_names = training_config['classes']#["non_resonant_bkg", "ttH", "other_single_H", "GluGluToHH", "VBFToHH_sig"]
+    class_names = training_config['classes']
     #n_classes = len(class_names)
     n_classes = y_val.shape[1]
 
