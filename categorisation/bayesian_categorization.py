@@ -12,6 +12,7 @@ import pandas as pd
 import json
 import mplhep
 from matplotlib.backends.backend_pdf import PdfPages
+import yaml
 
 
 class OptunaCategorizer:
@@ -28,7 +29,8 @@ class OptunaCategorizer:
                 side_band_threshold=10,
                 beta=0.1,
                 gamma_strategy="linear",
-                SR_strategy="sequential"
+                SR_strategy="sequential",
+                config_path = 'configs/Version_20250524_MVAID_forPreApp/'
                 ):
 
         self.base_path = base_path
@@ -46,6 +48,10 @@ class OptunaCategorizer:
         self.beta = beta
         self.gamma_strategy = gamma_strategy
         self.SR_strategy = SR_strategy
+        self.dijet_mass_key = 'Res_dijet_massbRegCorr'
+
+        with open(config_path + '/training_config.yaml', 'r') as f:
+            self.training_config = yaml.load(f, Loader = yaml.Loader) 
 
         if self.cat_folder is None:
             print("INFO: No output directory specified, using default: optuna_categorization")
@@ -54,11 +60,12 @@ class OptunaCategorizer:
         if self.samples_list is None:
             self.samples_list = ["VBFHToGG_M_125", "VHtoGG_M_125", "ttHtoGG_M_125", "BBHto2G_M_125", "GluGluHToGG_M_125", "GluGlutoHHto2B2G_kl_1p00_kt_1p00_c2_0p00", "GluGlutoHHto2B2G_kl_5p00_kt_1p00_c2_0p00", "GluGlutoHHto2B2G_kl_0p00_kt_1p00_c2_0p00", "GluGlutoHHto2B2G_kl_2p45_kt_1p00_c2_0p00","TTGG", "GGJets", "DDQCDGJET", "TTG_10_100", "TTG_100_200", "TTG_200", "TT"]
             self.samples_list = ["VBFHToGG_M_125", "VHtoGG_M_125", "ttHtoGG_M_125", "BBHto2G_M_125", "GluGluHToGG_M_125", "GluGlutoHHto2B2G_kl_1p00_kt_1p00_c2_0p00", "GluGlutoHHto2B2G_kl_5p00_kt_1p00_c2_0p00", "GluGlutoHHto2B2G_kl_0p00_kt_1p00_c2_0p00", "GluGlutoHHto2B2G_kl_2p45_kt_1p00_c2_0p00","TTGG", "GGJets", "DDQCDGJET", "TTG_100_200", "TTG_200"]
+            self.samples_list = [f for f in self.training_config['sample_to_class']]#["VBFHToGG_M_125", "VHtoGG_M_125", "ttHtoGG_M_125", "BBHto2G_M_125", "GluGluHToGG_M_125", "GluGlutoHHto2B2G_kl_1p00_kt_1p00_c2_0p00", "GluGlutoHHto2B2G_kl_5p00_kt_1p00_c2_0p00", "GluGlutoHHto2B2G_kl_0p00_kt_1p00_c2_0p00", "GluGlutoHHto2B2G_kl_2p45_kt_1p00_c2_0p00","TTGG", "GGJets", "DDQCDGJET", "TTG_100_200", "TTG_200"]
         if self.bkg_samples is None:
             # self.bkg_samples = ["VBFHToGG_M_125", "VHtoGG_M_125", "ttHtoGG_M_125", "BBHto2G_M_125", "GluGluHToGG_M_125", "TTGG", "GGJets", "DDQCDGJET", "TTG_10_100", "TTG_100_200", "TTG_200", "TT"]
-            self.bkg_samples = ["VBFHToGG_M_125", "VHtoGG_M_125", "ttHtoGG_M_125", "BBHto2G_M_125", "GluGluHToGG_M_125", "TTGG", "GGJets", "DDQCDGJET", "TTG_100_200", "TTG_200"]
+            self.bkg_samples = [f for f in self.training_config['sample_to_class'] if 'bkg' in self.training_config['sample_to_class'][f]]#["VBFHToGG_M_125", "VHtoGG_M_125", "ttHtoGG_M_125", "BBHto2G_M_125", "GluGluHToGG_M_125", "TTGG", "GGJets", "DDQCDGJET", "TTG_100_200", "TTG_200"]
         if self.signal_samples is None:
-            self.signal_samples = ["GluGlutoHHto2B2G_kl_1p00_kt_1p00_c2_0p00"]
+            self.signal_samples = [f for f in self.training_config['sample_to_class'] if 'sig' in self.training_config['sample_to_class'][f]]#["GluGlutoHHto2B2G_kl_1p00_kt_1p00_c2_0p00"]
 
         self.apply_preselection = True
     
@@ -102,7 +109,11 @@ class OptunaCategorizer:
     def preselection(self, events, scores):
         
         mass_bool = ((events.mass > 100) & (events.mass < 180))
-        dijet_mass_bool = ((events.nonResReg_dijet_mass_DNNreg > 70) & (events.nonResReg_dijet_mass_DNNreg < 190))
+
+        if 'nonResReg_dijet_mass_DNNreg' in events.fields:
+            dijet_mass_bool = ((events.nonResReg_dijet_mass_DNNreg > 70) & (events.nonResReg_dijet_mass_DNNreg < 190))
+        else:
+            dijet_mass_bool = ((events.Res_dijet_massbRegCorr > 70) & (events.Res_dijet_massbRegCorr < 190))
 
         lead_mvaID_bool = (events.lead_mvaID > -0.7)
         sublead_mvaID_bool = (events.sublead_mvaID > -0.7)
@@ -123,8 +134,8 @@ class OptunaCategorizer:
             "weights", "labels", "sample"
         )}
 
-        eras = ("preEE", "postEE", "preBPix", "postBPix")
-        dijet_mass_key = "nonResReg_dijet_mass_DNNreg"
+        eras = self.training_config['samples_info']['eras'] #("preEE", "postEE", "preBPix", "postBPix")
+        # dijet_mass_key = 'Res_dijet_massbRegCorr' #"nonResReg_dijet_mass_DNNreg"
 
         for era in eras:
             for sample in self.samples_list:
@@ -144,7 +155,7 @@ class OptunaCategorizer:
                     events = ak.from_parquet(
                         evt_file,
                         columns=[
-                            "mass", dijet_mass_key,
+                            "mass", self.dijet_mass_key,
                             "lead_genPartFlav", "sublead_genPartFlav",
                             "weight_tot",
                             "lead_mvaID", "sublead_mvaID",
@@ -168,7 +179,7 @@ class OptunaCategorizer:
 
                 data["score"].append(y)
                 data["diphoton_mass"].append(np.asarray(events["mass"]))
-                data["dijet_mass"].append(np.asarray(events[dijet_mass_key]))
+                data["dijet_mass"].append(np.asarray(events[self.dijet_mass_key]))
                 data["weights"].append(np.asarray(events["weight_tot"]))
                 data["labels"].append(
                     np.full(len(y), 1 if sample in self.signal_samples else 0, dtype=int)
@@ -233,6 +244,8 @@ class OptunaCategorizer:
 
         label_dict = {
             "GGJets": "GGJets",
+            "GGJets_low": "GGJets (Low Mass)",
+            "GGJets_high": "GGJets (High Mass)",
             "GJetPt20To40": "GJetPt20To40",
             "GJetPt40": "GJetPt40",
             "TTGG": "TTGG",
@@ -256,67 +269,65 @@ class OptunaCategorizer:
         stack_mc_dict = {}
         signal_mc_dict = {}
 
-        class_names = ["non_resonant_bkg_score", "ttH_score", "other_single_H_score", "GluGluToHH_score", "VBFToHH_sig_score"]
-
+        class_names = self.training_config['classes'] # ["non_resonant_bkg_score", "ttH_score", "other_single_H_score", "GluGluToHH_score", "VBFToHH_sig_score"]
+        num_classes = len(class_names)
+        eras = self.training_config['samples_info']['eras']
         for sample in sim_samples:
             # Load MC events
-            if not os.path.exists(f"{sim_folder}/preEE/{sample}/events.parquet"):
-                print(f"samples doesn't exist: {sample}")
-                sample_preEE = ak.from_parquet(f"{sim_folder}/postEE/{sample}/events.parquet", columns=variables + ["weight_tot"])
-                sample_preEE["weight_tot"] = sample_preEE["weight_tot"] * luminosities["preEE"] / luminosities["postEE"] # Adjust weight for preEE only
-            else:
-                sample_preEE = ak.from_parquet(f"{sim_folder}/preEE/{sample}/events.parquet", columns=variables + ["weight_tot"])
-
-
-            luminosities = {
-            "preEE": 7.98,  # Integrated luminosity for preEE in fb^-1
-            "postEE": 26.67,  # Integrated luminosity for postEE in fb^-1
-            "preBPix": 17.794,  # Integrated luminosity for preEE in fb^-1
-            "postBPix": 9.451  # Integrated luminosity for postEE in fb^-1
-            }
-
-            sample_postEE = ak.from_parquet(f"{sim_folder}/postEE/{sample}/events.parquet", columns=variables + ["weight_tot"])
-            if include_2023:
-                if not os.path.exists(f"{sim_folder}/preBPix/{sample}/events.parquet"):
-                    print(f"samples doesn't exist: {sample} preBPix")
-                    sample_preBPix = ak.from_parquet(f"{sim_folder}/postEE/{sample}/events.parquet", columns=variables + ["weight_tot"])
-                    sample_preBPix["weight_tot"] = sample_preBPix["weight_tot"] * luminosities["preBPix"] / luminosities["postEE"]
-                else:
-                    sample_preBPix = ak.from_parquet(f"{sim_folder}/preBPix/{sample}/events.parquet", columns=variables + ["weight_tot"])
-
-                if not os.path.exists(f"{sim_folder}/postBPix/{sample}/events.parquet"):
-                    print(f"samples doesn't exist: {sample} postBPix")
-                    sample_postBPix = ak.from_parquet(f"{sim_folder}/postEE/{sample}/events.parquet", columns=variables + ["weight_tot"])
-                    sample_postBPix["weight_tot"] = sample_postBPix["weight_tot"] * luminosities["postBPix"] / luminosities["postEE"]
-                else:
-                    sample_postBPix = ak.from_parquet(f"{sim_folder}/postBPix/{sample}/events.parquet", columns=variables + ["weight_tot"])
-
-            if os.path.exists(f"{sim_folder}/preEE/{sample}/y.npy"):
-                score_preEE = np.load(f"{sim_folder}/preEE/{sample}/y.npy")
-                score_postEE = np.load(f"{sim_folder}/postEE/{sample}/y.npy")
-                if include_2023:
-                    score_preBPix = np.load(f"{sim_folder}/preBPix/{sample}/y.npy")
-                    score_postBPix = np.load(f"{sim_folder}/postBPix/{sample}/y.npy")
-
-                num_classes = score_preEE.shape[1]
-
+            samples = []
+            for e in eras:
+                mc = ak.from_parquet(f"{sim_folder}/{e}/{sample}/events.parquet", columns=variables + ["weight_tot"])
+                scores = np.load(f"{sim_folder}/{e}/{sample}/y.npy")
                 for i, class_name in enumerate(class_names):
-                    if i < num_classes:
-                        sample_preEE[class_name] = score_preEE[:, i]
-                        sample_postEE[class_name] = score_postEE[:, i]
-                        if include_2023:
-                            sample_preBPix[class_name] = score_preBPix[:, i]
-                            sample_postBPix[class_name] = score_postBPix[:, i]
-
-
-            # Merge preEE and postEE
-            if include_2023:
-                sample_combined = ak.concatenate([sample_preEE, sample_postEE, sample_preBPix, sample_postBPix], axis=0)
-            else:
-                sample_combined = ak.concatenate([sample_preEE, sample_postEE], axis=0)
+                    mc[class_name] = scores[:, i]
+                samples.append(mc)
+            sample_combined = ak.concatenate(samples)
             if "minMVAID" in variables:
                 sample_combined["minMVAID"] = np.min([sample_combined.lead_mvaID, sample_combined.sublead_mvaID], axis = 0)
                 sample_combined["maxMVAID"] = np.max([sample_combined.lead_mvaID, sample_combined.sublead_mvaID], axis = 0)
+
+            # luminosities = {
+            # "2016APV": 19.500,
+            # "2016nonAPV": 16.800,
+            # "2017": 41.480,
+            # "2018": 59.830,
+            # "preEE": 7.98,  # Integrated luminosity for preEE in fb^-1
+            # "postEE": 26.67,  # Integrated luminosity for postEE in fb^-1
+            # "preBPix": 17.794,  # Integrated luminosity for preEE in fb^-1
+            # "postBPix": 9.451  # Integrated luminosity for postEE in fb^-1
+            # }
+
+            # scores = {}
+            # for e in eras:
+            #     s = np.load(f"{sim_folder}/{e}/{sample}/y.npy")
+            #     [class_name] = score_preEE[:, i]
+                
+            # if os.path.exists(f"{sim_folder}/{eras[0]}/{sample}/y.npy"):
+            #     score_preEE = np.load(f"{sim_folder}/preEE/{sample}/y.npy")
+            #     score_postEE = np.load(f"{sim_folder}/postEE/{sample}/y.npy")
+            #     if include_2023:
+            #         score_preBPix = np.load(f"{sim_folder}/preBPix/{sample}/y.npy")
+            #         score_postBPix = np.load(f"{sim_folder}/postBPix/{sample}/y.npy")
+
+            #     num_classes = score_preEE.shape[1]
+
+            #     for i, class_name in enumerate(class_names):
+            #         if i < num_classes:
+            #             sample_preEE[class_name] = score_preEE[:, i]
+            #             sample_postEE[class_name] = score_postEE[:, i]
+            #             if include_2023:
+            #                 sample_preBPix[class_name] = score_preBPix[:, i]
+            #                 sample_postBPix[class_name] = score_postBPix[:, i]
+
+
+            # # Merge preEE and postEE
+            # if include_2023:
+            #     sample_combined = ak.concatenate([sample_preEE, sample_postEE, sample_preBPix, sample_postBPix], axis=0)
+            # else:
+            #     sample_combined = ak.concatenate([sample_preEE, sample_postEE], axis=0)
+            # if "minMVAID" in variables:
+            #     sample_combined["minMVAID"] = np.min([sample_combined.lead_mvaID, sample_combined.sublead_mvaID], axis = 0)
+            #     sample_combined["maxMVAID"] = np.max([sample_combined.lead_mvaID, sample_combined.sublead_mvaID], axis = 0)
 
             # Blind mass region
             #if "mass" in sample_combined.fields:
@@ -329,13 +340,14 @@ class OptunaCategorizer:
                 stack_mc_dict[label_dict[sample]] = sample_combined
 
         # combine a few samples into one
-        stack_mc_dict["ttGG + ttG"] = ak.concatenate([stack_mc_dict["TTGG"], stack_mc_dict["TTG_100_200"], stack_mc_dict["TTG_200"]], axis=0)
+        # stack_mc_dict["ttGG + ttG"] = ak.concatenate([stack_mc_dict["TTGG"], stack_mc_dict["TTG_100_200"], stack_mc_dict["TTG_200"]], axis=0)
 
         # Load Data First
-        if include_2023:
-            data_samples = ["2022_EraE", "2022_EraF", "2022_EraG", "2022_EraC", "2022_EraD", "2023_EraC", "2023_EraD"]
-        else:
-            data_samples = ["2022_EraE", "2022_EraF", "2022_EraG", "2022_EraC", "2022_EraD"]
+        # if include_2023:
+        #     data_samples = ["2022_EraE", "2022_EraF", "2022_EraG", "2022_EraC", "2022_EraD", "2023_EraC", "2023_EraD"]
+        # else:
+        #     data_samples = ["2022_EraE", "2022_EraF", "2022_EraG", "2022_EraC", "2022_EraD"]
+        data_samples = self.training_config['samples_info']['data']
         data_combined = None
 
         for data_sample in data_samples:
@@ -371,7 +383,12 @@ class OptunaCategorizer:
             "nonResReg_dijet_mass_DNNreg": {"label": r"$m_{jj}^{reg}$ [GeV]", "bins": 30, "range": (80, 180), "log": True},
             "Res_mjj_regressed": {"label": r"$m_{jj}^{reg}$ [GeV]", "bins": 23, "range": (80, 180), "log": True},
             "Res_dijet_mass": {"label": r" Resonant $m_{jj}$ [GeV]", "bins": 30, "range": (80, 180), "log": True},
+            "Res_dijet_massbRegCorr": {"label": r" Resonant $m_{jj}$ [GeV]", "bins": 30, "range": (80, 180), "log": True},
             "non_resonant_bkg_score": {"label": "non_resonant_bkg_score", "bins": 30, "range": (0, 1), "log": True},
+            "is_non_resonant_bkg": {"label": "is_non_resonant_bkg", "bins": 30, "range": (0, 1), "log": True},
+            "is_ttH_bkg": {"label": "is_ttH_bkg", "bins": 30, "range": (0, 1), "log": True},
+            "is_single_H_bkg": {"label": "is_single_H_bkg", "bins": 30, "range": (0, 1), "log": True},
+            "is_GluGluToHH_sig": {"label": "is_GluGluToHH_sig", "bins": 30, "range": (0, 1), "log": True},
             "ttH_score": {"label": "ttH_score", "bins": 30, "range": (0, 1), "log": True},
             "other_single_H_score": {"label": "other_single_H_score", "bins": 30, "range": (0, 1), "log": True},
             "GluGluToHH_score": {"label": "GluGluToHH_score", "bins": 30, "range": (0, 1), "log": True},
@@ -412,6 +429,7 @@ class OptunaCategorizer:
             for i, (sample, data) in enumerate(stack_mc_dict.items()):
                 if ("TTG_" in sample) or (sample=="TTGG") or (sample=="TT"):
                     continue
+                print(sample, variable, data.fields)
                 hist, _ = np.histogram(ak.to_numpy((data[variable])), bins=bin_edges, weights=ak.to_numpy((data["weight_tot"])))
                 mc_hist.append(hist)
                 mc_labels.append(sample)
@@ -894,6 +912,8 @@ class OptunaCategorizer:
         # ---------------------
         samples = [
             "GGJets",
+            "GGJets_high",
+            "GGJets_low",
             "DDQCDGJET",
             "TTGG",
             "ttHtoGG_M_125",
@@ -910,11 +930,12 @@ class OptunaCategorizer:
             "TTG_200",
             "TT"
         ]
-        dijet_mass_key = "nonResReg_dijet_mass_DNNreg"
+        samples = [f for f in self.training_config['sample_to_class']]#['eras']
+        # dijet_mass_key = 'Res_dijet_massbRegCorr' #"nonResReg_dijet_mass_DNNreg"
 
-        columns = ["mass", dijet_mass_key, "lead_genPartFlav", "sublead_genPartFlav", "lead_mvaID", "sublead_mvaID", "weight_tot"]
+        columns = ["mass", self.dijet_mass_key, "lead_genPartFlav", "sublead_genPartFlav", "lead_mvaID", "sublead_mvaID", "weight_tot"]
 
-        for era in ["preEE", "postEE", "preBPix", "postBPix"]:
+        for era in self.training_config['samples_info']['eras']: #["preEE", "postEE", "preBPix", "postBPix"]:
             for sample in samples:
                 if not os.path.exists(f"{base_path}/individual_samples/{era}/{sample}"):
                     print(f"Skipping {sample} in {era} as it does not exist.")
@@ -936,7 +957,7 @@ class OptunaCategorizer:
                     events = events[prompt_photon_bool]
                     scores = scores[prompt_photon_bool]
 
-                events["dijet_mass"] = events[dijet_mass_key]
+                events["dijet_mass"] = events[self.dijet_mass_key]
 
                 # Keep track of leftover
                 selected_events = events
@@ -968,15 +989,16 @@ class OptunaCategorizer:
         # ----------------------
         # Process Data samples
         # ----------------------
-        data_samples = [
-            "2022_EraE",
-            "2022_EraF",
-            "2022_EraG",
-            "2022_EraC",
-            "2022_EraD",
-            "2023_EraC",
-            "2023_EraD"
-        ]
+        # data_samples = [
+        #     "2022_EraE",
+        #     "2022_EraF",
+        #     "2022_EraG",
+        #     "2022_EraC",
+        #     "2022_EraD",
+        #     "2023_EraC",
+        #     "2023_EraD"
+        # ]
+        data_samples = self.training_config['samples_info']['data']
         for data_sample in data_samples:
             inputs_path = f"{base_path}/individual_samples_data/{data_sample}"
             print(f"Processing {inputs_path}")
@@ -985,8 +1007,8 @@ class OptunaCategorizer:
             scores = np.load(f"{inputs_path}/y.npy")
 
             # For data, weight_tot = 1
-            events["weight_tot"] = ak.ones_like(events[dijet_mass_key])
-            events["dijet_mass"] = events[dijet_mass_key]
+            events["weight_tot"] = ak.ones_like(events[self.dijet_mass_key])
+            events["dijet_mass"] = events[self.dijet_mass_key]
 
             # Apply selection if needed
             if self.apply_preselection:
@@ -1072,19 +1094,23 @@ class OptunaCategorizer:
         from matplotlib.backends.backend_pdf import PdfPages
 
         samples = [
-            "GGJets", "DDQCDGJET", "TTGG", "ttHtoGG_M_125", "BBHto2G_M_125",
-            "GluGluHToGG_M_125", "VBFHToGG_M_125", "VHtoGG_M_125",
+            "GGJets_high", "GGJets_low", "DDQCDGJET", "TTGG", "ttHtoGG_M_125", #"BBHto2G_M_125",
+            "GluGluHToGG_M_125", "VBFHToGG_M_125", "VHtoGG_M_125", "TTGG",
             "GluGlutoHHto2B2G_kl_1p00_kt_1p00_c2_0p00",
-            "TTG_100_200", "TTG_200"
+            # "TTG_100_200", "TTG_200"
         ]
+        samples = [f for f in self.training_config['sample_to_class']]
         data_samples = [
             "2022_EraE","2022_EraF","2022_EraG","2022_EraC","2022_EraD",
             "2023_EraC","2023_EraD"
         ]
+        data_samples = self.training_config['samples_info']['data']
         folder_to_region = {
             "cat1":"SR1","cat2":"SR2","cat3":"SR3",
-            "ttH":"CR_ttH","bbH":"CR_bbH",
+            "ttH":"CR_ttH"#,"bbH":"CR_bbH",
         }
+        if 'BBHto2G_M_125' in samples:
+            folder_to_region['bbH'] = "CR_bbH"
         yield_dict = {}
 
         # unpack mass range if given
@@ -1101,16 +1127,18 @@ class OptunaCategorizer:
                     continue
 
                 # load both weight and mass
-                ev = ak.concatenate([
-                    ak.from_parquet(f"{path}/preEE/{sample}/events.parquet",
-                                    columns=["weight_tot","mass"]),
-                    ak.from_parquet(f"{path}/postEE/{sample}/events.parquet",
-                                    columns=["weight_tot","mass"]),
-                    ak.from_parquet(f"{path}/preBPix/{sample}/events.parquet",
-                                    columns=["weight_tot","mass"]),
-                    ak.from_parquet(f"{path}/postBPix/{sample}/events.parquet",
-                                    columns=["weight_tot","mass"])
-                ], axis=0)
+                # ev = ak.concatenate([
+                #     ak.from_parquet(f"{path}/preEE/{sample}/events.parquet",
+                #                     columns=["weight_tot","mass"]),
+                #     ak.from_parquet(f"{path}/postEE/{sample}/events.parquet",
+                #                     columns=["weight_tot","mass"]),
+                #     ak.from_parquet(f"{path}/preBPix/{sample}/events.parquet",
+                #                     columns=["weight_tot","mass"]),
+                #     ak.from_parquet(f"{path}/postBPix/{sample}/events.parquet",
+                #                     columns=["weight_tot","mass"])
+                # ], axis=0)
+                ev = ak.concatenate([ak.from_parquet(f"{path}/{e}/{sample}/events.parquet",columns=["weight_tot","mass"]) for e in self.training_config['samples_info']['eras']], axis = 0)
+
 
                 # apply the mass cut if requested
                 if mass_range is not None:
@@ -1234,9 +1262,10 @@ class OptunaCategorizer:
                 print("Error: Weight array should have dimension = ", nDim)
                 return []
             probabilities = np.abs(w) / np.sum(np.abs(w))
+            
         else:
             probabilities = None
-
+        print('Sum', probabilities, np.sum(probabilities))
 
         # Set up the weights
         outIndex = []
@@ -1288,25 +1317,27 @@ class OptunaCategorizer:
 
     def test_mass_sculpting(self, folder, cat_list, cat_folder):
 
+        samples = [f for f in self.training_config['sample_to_class']]
+        samples = [f for f in samples if ('GGJets' in f) or (f == 'TTGG')]
+
         path_for_plots = f"{folder}/{cat_folder}/mass_sculpting_plots/"
         os.makedirs(path_for_plots, exist_ok=True)
 
-        columns_to_load = ["mass", "nonResReg_dijet_mass_DNNreg", "weight_tot"]
+        columns_to_load = ["mass", self.dijet_mass_key, "weight_tot"]
+        eras = self.training_config['samples_info']['eras']
 
-        preEE = ak.from_parquet(f"{folder}/individual_samples/preEE/GGJets/events.parquet", columns=columns_to_load)
-        postEE = ak.from_parquet(f"{folder}/individual_samples/postEE/GGJets/events.parquet", columns=columns_to_load)
-        preBPix = ak.from_parquet(f"{folder}/individual_samples/preBPix/GGJets/events.parquet", columns=columns_to_load)
-        postBPix = ak.from_parquet(f"{folder}/individual_samples/postBPix/GGJets/events.parquet", columns=columns_to_load)
-        # concatenate the samples
-        presel_GGjets = ak.concatenate([preEE, postEE, preBPix, postBPix], axis=0)
+        presel = []
+        for s in samples:
+            for e in eras:
+                presel.append(ak.from_parquet(f"{folder}/individual_samples/{e}/{s}/events.parquet", columns=columns_to_load))
 
-        # load TTGG
-        preEE = ak.from_parquet(f"{folder}/individual_samples/preEE/TTGG/events.parquet", columns=columns_to_load)
-        postEE = ak.from_parquet(f"{folder}/individual_samples/postEE/TTGG/events.parquet", columns=columns_to_load)
-        preBPix = ak.from_parquet(f"{folder}/individual_samples/preBPix/TTGG/events.parquet", columns=columns_to_load)
-        postBPix = ak.from_parquet(f"{folder}/individual_samples/postBPix/TTGG/events.parquet", columns=columns_to_load)
-        # concatenate the samples
-        presel = ak.concatenate([preEE, postEE, preBPix, postBPix, presel_GGjets], axis=0)
+        presel = ak.concatenate(presel, axis=0)
+        # preEE = ak.from_parquet(f"{folder}/individual_samples/preEE/TTGG/events.parquet", columns=columns_to_load)
+        # postEE = ak.from_parquet(f"{folder}/individual_samples/postEE/TTGG/events.parquet", columns=columns_to_load)
+        # preBPix = ak.from_parquet(f"{folder}/individual_samples/preBPix/TTGG/events.parquet", columns=columns_to_load)
+        # postBPix = ak.from_parquet(f"{folder}/individual_samples/postBPix/TTGG/events.parquet", columns=columns_to_load)
+        # # concatenate the samples
+        # presel = ak.concatenate([preEE, postEE, preBPix, postBPix, presel_GGjets], axis=0)
 
         cat_to_label = {
             "cat1": "SR1",
@@ -1316,22 +1347,28 @@ class OptunaCategorizer:
         }
 
         cat_events = {}
+        events_nonRes = []
         # loop over the categories
         for cat in cat_list:
-            preEE = ak.from_parquet(f"{folder}/{cat_folder}/{cat}/preEE/GGJets/events.parquet", columns=columns_to_load)
-            postEE = ak.from_parquet(f"{folder}/{cat_folder}/{cat}/postEE/GGJets/events.parquet", columns=columns_to_load)
-            preBPix = ak.from_parquet(f"{folder}/{cat_folder}/{cat}/preBPix/GGJets/events.parquet", columns=columns_to_load)
-            postBPix = ak.from_parquet(f"{folder}/{cat_folder}/{cat}/postBPix/GGJets/events.parquet", columns=columns_to_load)
+            for s in samples:
+                events_nonRes.append(ak.from_parquet(f"{folder}/{cat_folder}/{cat}/{e}/{s}/events.parquet", columns=columns_to_load))
 
-            # load TTGG
-            preEE_ttgg = ak.from_parquet(f"{folder}/{cat_folder}/{cat}/preEE/TTGG/events.parquet", columns=columns_to_load)
-            postEE_ttgg = ak.from_parquet(f"{folder}/{cat_folder}/{cat}/postEE/TTGG/events.parquet", columns=columns_to_load)
-            preBPix_ttgg = ak.from_parquet(f"{folder}/{cat_folder}/{cat}/preBPix/TTGG/events.parquet", columns=columns_to_load)
-            postBPix_ttgg = ak.from_parquet(f"{folder}/{cat_folder}/{cat}/postBPix/TTGG/events.parquet", columns=columns_to_load)
+            cat_events[cat] = ak.concatenate(events_nonRes, axis=0)
 
-            # concatenate the samples
-            events_nonRes = ak.concatenate([preEE, postEE, preBPix, postBPix, preEE_ttgg, postEE_ttgg, preBPix_ttgg, postBPix_ttgg], axis=0)
-            cat_events[cat] = events_nonRes
+            # preEE = ak.from_parquet(f"{folder}/{cat_folder}/{cat}/preEE/GGJets/events.parquet", columns=columns_to_load)
+            # postEE = ak.from_parquet(f"{folder}/{cat_folder}/{cat}/postEE/GGJets/events.parquet", columns=columns_to_load)
+            # preBPix = ak.from_parquet(f"{folder}/{cat_folder}/{cat}/preBPix/GGJets/events.parquet", columns=columns_to_load)
+            # postBPix = ak.from_parquet(f"{folder}/{cat_folder}/{cat}/postBPix/GGJets/events.parquet", columns=columns_to_load)
+
+            # # load TTGG
+            # preEE_ttgg = ak.from_parquet(f"{folder}/{cat_folder}/{cat}/preEE/TTGG/events.parquet", columns=columns_to_load)
+            # postEE_ttgg = ak.from_parquet(f"{folder}/{cat_folder}/{cat}/postEE/TTGG/events.parquet", columns=columns_to_load)
+            # preBPix_ttgg = ak.from_parquet(f"{folder}/{cat_folder}/{cat}/preBPix/TTGG/events.parquet", columns=columns_to_load)
+            # postBPix_ttgg = ak.from_parquet(f"{folder}/{cat_folder}/{cat}/postBPix/TTGG/events.parquet", columns=columns_to_load)
+
+            # # concatenate the samples
+            # events_nonRes = ak.concatenate([preEE, postEE, preBPix, postBPix, preEE_ttgg, postEE_ttgg, preBPix_ttgg, postBPix_ttgg], axis=0)
+            # cat_events[cat] = events_nonRes
 
 
 
@@ -1373,15 +1410,15 @@ class OptunaCategorizer:
         plt.clf()
 
         fig, ax = plt.subplots()
-        plot_with_errorbars(presel, "nonResReg_dijet_mass_DNNreg", [70, 190], "Pre-selection", ax)
+        plot_with_errorbars(presel, self.dijet_mass_key, [70, 190], "Pre-selection", ax)
         for cat in cat_list:
-            plot_with_errorbars(cat_events[cat], "nonResReg_dijet_mass_DNNreg", [70, 190], cat_to_label[cat], ax)
+            plot_with_errorbars(cat_events[cat], self.dijet_mass_key, [70, 190], cat_to_label[cat], ax)
         ax.set_xlabel("Dijet mass (GeV)")
         ax.set_ylabel("Normalized events")
         ax.legend()
         plt.title("GGJets+TTGG")
         plt.tight_layout()
-        fig.savefig(f"{path_for_plots}/nonResReg_dijet_mass_DNNreg.png")
+        fig.savefig(f"{path_for_plots}/{self.dijet_mass_key}.png")
         plt.clf()
 
         # get correlation
@@ -1390,9 +1427,9 @@ class OptunaCategorizer:
             cat_corr_dict[cat] = {"mean": 0, "std": 0}
             cat_events_ = cat_events[cat]
             x = ak.to_numpy(cat_events_["mass"])
-            y = ak.to_numpy(cat_events_["nonResReg_dijet_mass_DNNreg"])
+            y = ak.to_numpy(cat_events_[self.dijet_mass_key])
             weights = ak.to_numpy(cat_events_["weight_tot"])
-
+            print(len(x), len(y), len(weights))
             # first get the index for bootstrap sampling
             idxs = self.bootstrap_sample(len(x), w=weights, nb=200, seed=42)
 
@@ -1412,15 +1449,15 @@ class OptunaCategorizer:
         for cat in cat_list:
             cat_events_ = cat_events[cat]
             fig, ax = plt.subplots()
-            plot_with_errorbars(cat_events_, "nonResReg_dijet_mass_DNNreg", [70, 190], r"$m_{\gamma \gamma} = [100, 180] GeV$", ax)
-            plot_with_errorbars(cat_events_[cat_events_.mass < 125], "nonResReg_dijet_mass_DNNreg", [70, 190], r"$m_{\gamma \gamma} < 125 GeV$", ax)
-            plot_with_errorbars(cat_events_[cat_events_.mass > 125], "nonResReg_dijet_mass_DNNreg", [70, 190], r"$m_{\gamma \gamma} > 125 GeV$", ax)
-            ax.set_xlabel("Dijet regressed mass (GeV)")
+            plot_with_errorbars(cat_events_, self.dijet_mass_key, [70, 190], r"$m_{\gamma \gamma} = [100, 180] GeV$", ax)
+            plot_with_errorbars(cat_events_[cat_events_.mass < 125], self.dijet_mass_key, [70, 190], r"$m_{\gamma \gamma} < 125 GeV$", ax)
+            plot_with_errorbars(cat_events_[cat_events_.mass > 125], self.dijet_mass_key, [70, 190], r"$m_{\gamma \gamma} > 125 GeV$", ax)
+            ax.set_xlabel("Dijet mass (GeV)")
             ax.set_ylabel("Normalized events")
             ax.legend(title=f"Weigted Pea. Corr.: {cat_corr_dict[cat]['mean']:.2f} $\pm$ {cat_corr_dict[cat]['std']:.2f}")
             plt.title(f"GGJets+TTGG - {cat}")
             plt.tight_layout()
-            fig.savefig(f"{path_for_plots}/nonResReg_dijet_mass_DNNreg_diff_mass_{cat}.png")
+            fig.savefig(f"{path_for_plots}/{self.dijet_mass_key}_diff_mass_{cat}.png")
             plt.clf()
 
 
@@ -1451,8 +1488,8 @@ class OptunaCategorizer:
         self.test_mass_sculpting(f"{self.base_path}/", folder_list, self.cat_folder)
 
         # plot data-MC for SRs
-        sim_samples = ["VBFHToGG_M_125", "VHtoGG_M_125", "ttHtoGG_M_125", "BBHto2G_M_125", "GluGluHToGG_M_125", "GluGlutoHHto2B2G_kl_1p00_kt_1p00_c2_0p00", "TTGG", "GGJets", "DDQCDGJET", "TTG_100_200", "TTG_200"]
-        variables = ["mass", "nonResReg_dijet_mass_DNNreg"]
+        sim_samples = [f for f in self.training_config['sample_to_class']]#["VBFHToGG_M_125", "VHtoGG_M_125", "ttHtoGG_M_125", "BBHto2G_M_125", "GluGluHToGG_M_125", "GluGlutoHHto2B2G_kl_1p00_kt_1p00_c2_0p00", "TTGG", "GGJets", "DDQCDGJET", "TTG_100_200", "TTG_200"]
+        variables = ["mass", self.dijet_mass_key]
         for folder in folder_list:
             sim_folder = f"{self.base_path}/{self.cat_folder}/{folder}"
             data_folder = f"{self.base_path}/{self.cat_folder}/{folder}"
@@ -1476,9 +1513,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Categorize multiclass scores using Optuna with dynamic search ranges, sideband requirements, and summary plots.")
     parser.add_argument("--n_categories", type=int, default=5, help="Number of categories to optimize")
     parser.add_argument("--base_path", type=str, required=True, help="Base path to the input samples")
+    parser.add_argument("--config_path", type=str, required=True, help="Base path to the input samples")
     parser.add_argument("--optuna_folder", type=str, default="optuna_categorization", help="Folder name for Optuna results")
     parser.add_argument("--n_trials", type=int, default=150, help="Number of trials for Optuna optimization")
-    parser.add_argument("--SR_strategy", type=str, choices=["sequential", "simultaneous"], default="sequential", help="Strategy for SR categorization")
+    parser.add_argument("--o", type=str, choices=["sequential", "simultaneous"], default="sequential", help="Strategy for SR categorization")
     parser.add_argument("--n_runs", type=int, default=15, help="Number of complete runs for the categorization")
     parser.add_argument("--gamma_strategy", type=str, choices=["sqrt", "linear"], default="linear", help="Gamma strategy for TPE sampler")
     parser.add_argument("--side_band_threshold", type=int, default=10, help="Threshold for sideband requirements")
@@ -1490,7 +1528,8 @@ if __name__ == "__main__":
                                     n_categories=args.n_categories,
                                     n_trials_optuna=args.n_trials,
                                     n_runs=args.n_runs,
-                                    SR_strategy=args.SR_strategy)
+                                    SR_strategy=args.o, #SR_strategy,
+                                    config_path = args.config_path)
     categoriser.run_categorisation()
 
     
