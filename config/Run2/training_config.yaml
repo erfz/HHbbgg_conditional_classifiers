@@ -79,3 +79,9 @@ samples_info:
         "2017": "Run2_2017/Data.parquet"
         "2018": "Run2_2018/Data.parquet"
 
+systematics:
+
+# info to save in the parquets
+save_all_columns_sim_nominal : True
+save_all_columns_data : True
+save_all_columns_sim_systematics : False

@@ -40,7 +40,7 @@ class PrepareInputs:
 
         self.extra_vars = ["mass", "nonRes_dijet_mass", "nonResReg_dijet_mass", "nonResReg_dijet_mass_DNNreg", "nonResReg_HHbbggCandidate_mass", "nonResReg_dijet_pt", "nonResReg_lead_bjet_pt", "nonResReg_sublead_bjet_pt", "nonResReg_lead_bjet_eta", "nonResReg_DNNpair_dijet_mass", "nonResReg_DNNpair_dijet_mass_DNNreg", "weight", "pt", "nonRes_dijet_pt", "nonRes_HHbbggCandidate_mass", "eta", "nBTight","nBMedium","nBLoose", "nonRes_lead_bjet_pt", "nonRes_sublead_bjet_pt", "lead_isScEtaEB", "lead_isScEtaEE", "sublead_isScEtaEB", "sublead_isScEtaEE", "lead_mvaID", "sublead_mvaID", "lead_eta", "lead_phi", "sublead_eta", "sublead_phi"]
         # Add Run2 variables
-        self.extra_vars += ["Res_lead_bjet_btagDeepFlavB", "Res_sublead_bjet_btagDeepFlavB", "Res_lead_bjet_ptbRegCorr", "Res_sublead_bjet_ptbRegCorr", "nonRes_lead_bjet_ptbRegCorr", "nonRes_sublead_bjet_ptbRegCorr", "Res_dijet_massbRegCorr", "nonRes_dijet_massbRegCorr"]
+        self.extra_vars += ["Res_lead_bjet_btagDeepFlavB", "Res_sublead_bjet_btagDeepFlavB", "Res_lead_bjet_ptbRegCorr", "Res_sublead_bjet_ptbRegCorr", "nonRes_lead_bjet_ptbRegCorr", "nonRes_sublead_bjet_ptbRegCorr", "Res_dijet_massbRegCorr", "nonRes_dijet_massbRegCorr", "Res_HHbbggCandidate_mass", "Res_dijet_ptbRegCorr"]
         
         # prepare process numbers for proccesses in each class
         num_process_each_class = {
@@ -397,14 +397,13 @@ class PrepareInputs:
     
     def preselection(self, events):
         var_substitutions_Run2 = {
-            "Res_mjj_regressed": "Res_dijet_massbRegCorr",  # No dedicated dijet mass regression in current Run2 parquets
-            "nonRes_mjj_regressed": "nonRes_dijet_massbRegCorr",
-            "Res_lead_bjet_ptPNetCorr": "Res_lead_bjet_ptbRegCorr",
-            "nonRes_lead_bjet_ptPNetCorr": "nonRes_lead_bjet_ptbRegCorr",
-            "Res_sublead_bjet_ptPNetCorr": "Res_sublead_bjet_ptbRegCorr",
-            "nonRes_sublead_bjet_ptPNetCorr": "nonRes_sublead_bjet_ptbRegCorr",
+            "nonResReg_dijet_mass_DNNreg": "Res_dijet_massbRegCorr",  # No dedicated dijet mass regression in current Run2 parquets
             "Res_lead_bjet_btagPNetB": "Res_lead_bjet_btagDeepFlavB",
-            "Res_sublead_bjet_btagPNetB": "Res_sublead_bjet_btagDeepFlavB"
+            "Res_sublead_bjet_btagPNetB": "Res_sublead_bjet_btagDeepFlavB",
+            "nonResReg_HHbbggCandidate_mass": "Res_HHbbggCandidate_mass",
+            "nonResReg_dijet_pt": "Res_dijet_ptbRegCorr",
+            "nonResReg_lead_bjet_pt": "Res_lead_bjet_ptbRegCorr",
+            "nonResReg_sublead_bjet_pt": "Res_sublead_bjet_ptbRegCorr",
         }
         for k, v in var_substitutions_Run2.items():
             if k not in events.fields:
@@ -568,9 +567,9 @@ class PrepareInputs:
                 events["process_number"] = self.process_numbers[samples]
 
                 # plot_correlation_matrix
-                os.makedirs(f"{out_path}/correlation_matrix/", exist_ok=True)
-                corr_out_path = f"{out_path}/correlation_matrix/{samples}_{era}.pdf"
-                self.corr_with_mgg_mjj(events, vars_for_training, corr_out_path)
+                # os.makedirs(f"{out_path}/correlation_matrix/", exist_ok=True)
+                # corr_out_path = f"{out_path}/correlation_matrix/{samples}_{era}.pdf"
+                # self.corr_with_mgg_mjj(events, vars_for_training, corr_out_path)
 
         print("INFO: Combining all the samples")
         comb_inputs = ak.concatenate(comb_inputs, axis=0)
