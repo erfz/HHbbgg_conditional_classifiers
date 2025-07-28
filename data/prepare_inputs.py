@@ -394,8 +394,8 @@ class PrepareInputs:
         plt.savefig(f'{out_path}', dpi=300, )
         plt.clf()
 
-    
-    def preselection(self, events):
+
+    def substitute_vars_Run2(self, events):
         var_substitutions_Run2 = {
             "nonResReg_dijet_mass_DNNreg": "Res_dijet_massbRegCorr",  # No dedicated dijet mass regression in current Run2 parquets
             "Res_lead_bjet_btagPNetB": "Res_lead_bjet_btagDeepFlavB",
@@ -409,6 +409,11 @@ class PrepareInputs:
             if k not in events.fields:
                 events[k] = events[v]
         
+        return events
+    
+    def preselection(self, events):
+        events = self.substitute_vars_Run2(events)
+
         mass_bool = ((events.mass > 100) & (events.mass < 180))
         dijet_mass_bool = ((events.nonResReg_dijet_mass_DNNreg > 70) & (events.nonResReg_dijet_mass_DNNreg < 190))
 
@@ -420,6 +425,7 @@ class PrepareInputs:
         return events
     
     def preselection_for_pred(self, events):
+        events = self.substitute_vars_Run2(events)
         
         mass_bool = ((events.mass > 100) & (events.mass < 180))
 
